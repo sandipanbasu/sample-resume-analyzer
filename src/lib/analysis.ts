@@ -28,6 +28,7 @@ export type JobMatchResult = {
 
 export type AnalysisResult = {
   fileName: string;
+  resumeName: string;
   targetRole: string;
   jobDescription: string | null;
   overallScore: number;
@@ -71,6 +72,7 @@ Requirements:
 // Realistic sample analysis — demonstrates the full experience without any API.
 export const SAMPLE_ANALYSIS: AnalysisResult = {
   fileName: 'Jane_Doe_Resume.pdf',
+  resumeName: 'Jane Doe',
   targetRole: 'Software Engineer Intern',
   jobDescription: null,
   overallScore: 78,
@@ -254,6 +256,28 @@ export function analyzeJobMatch(jobDescription: string, targetRole: string): Job
   };
 }
 
+// Words that commonly appear in resume filenames but are NOT part of a person's name.
+const NON_NAME_WORDS = new Set([
+  'resume', 'cv', 'curriculum', 'vitae', 'profile', 'resumes',
+  'final', 'draft', 'copy', 'latest', 'new', 'updated', 'version',
+  'ai', 'software', 'engineer', 'developer', 'intern', 'internship',
+  'job', 'application', 'cover', 'letter', 'template', 'sample',
+  'document', 'doc', 'pdf', 'folio', 'linkedin',
+]);
+
+function extractNameFromFilename(fileName: string): string {
+  const base = fileName.replace(/\.(pdf|docx?|txt)$/i, '');
+  const tokens = base.split(/[_\-.]+/).map((t) => t.trim()).filter((t) => t.length > 0);
+  const nameParts = tokens.filter((t) => !NON_NAME_WORDS.has(t.toLowerCase()));
+  if (nameParts.length >= 1) {
+    return nameParts
+      .slice(0, 4)
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
+      .join(' ');
+  }
+  return 'Your Name';
+}
+
 // Slight score variance so repeated analyses feel alive, while staying realistic.
 export function analyzeResume(
   fileName: string,
@@ -284,6 +308,7 @@ export function analyzeResume(
   return {
     ...SAMPLE_ANALYSIS,
     fileName,
+    resumeName: extractNameFromFilename(fileName),
     targetRole,
     jobDescription,
     overallScore: overall,

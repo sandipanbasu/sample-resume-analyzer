@@ -1,6 +1,6 @@
 import {
   ArrowLeft, CheckCircle2, AlertTriangle, Lightbulb, TrendingUp,
-  Sparkles, FileText, Target, RefreshCw, Download, ThumbsUp, Wand2,
+  Sparkles, FileText, Target, RefreshCw, ThumbsUp, Wand2,
 } from 'lucide-react';
 import ScoreRing from './ScoreRing';
 import CategoryBar from './CategoryBar';
@@ -35,10 +35,6 @@ export default function ResultsDashboard({ result, onReset, onImprove }: Props) 
           New Analysis
         </button>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-sm font-semibold text-slate-600 shadow-sm transition hover:bg-slate-50">
-            <Download className="h-4 w-4" />
-            Export
-          </button>
           <button
             onClick={onReset}
             className="flex items-center gap-1.5 rounded-xl bg-slate-900 px-3.5 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
