@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  ArrowLeft, Sparkles, Check, Download, Pencil, FileText,
-  TrendingUp, AlertCircle, Wand2, RefreshCw,
+  ArrowLeft, Sparkles, Check, Pencil, FileText,
+  TrendingUp, AlertCircle, Wand2, RefreshCw, CheckCircle2, FileDown,
 } from 'lucide-react';
 import ResumePreview from './ResumePreview';
 import EditableResume from './EditableResume';
-import { refineResume, SAMPLE_RESUME, type RefinementResult, type ResumeData } from '@/lib/resume';
+import { refineResume, SAMPLE_RESUME, withOwnerName, type RefinementResult, type ResumeData } from '@/lib/resume';
 import { generateResumePDF } from '@/lib/pdf';
+import { generateResumeDoc } from '@/lib/word';
 import type { AnalysisResult, JobMatchResult } from '@/lib/analysis';
 
 type Props = {
@@ -24,36 +25,51 @@ export default function ImproveResumeScreen({ result, onBack, onReset }: Props) 
   const [refinement, setRefinement] = useState<RefinementResult | null>(null);
   const [tab, setTab] = useState<Tab>('refined');
   const [pdfError, setPdfError] = useState<string | null>(null);
+  const [applied, setApplied] = useState(false);
+  const [justApplied, setJustApplied] = useState(false);
 
-  const originalResume: ResumeData = SAMPLE_RESUME;
+  const originalResume: ResumeData = withOwnerName(SAMPLE_RESUME, result.resumeName);
 
   // Simulate the AI refinement call once on mount.
   useEffect(() => {
     if (phase !== 'loading' || refinement) return;
     const timer = setTimeout(() => {
       const jobMatch: JobMatchResult | undefined = result.jobMatch ?? undefined;
-      const refined = refineResume(SAMPLE_RESUME, mode, jobMatch);
+      const refined = refineResume(SAMPLE_RESUME, mode, jobMatch, result.resumeName);
       setRefinement(refined);
       setPhase('result');
     }, 2200);
     return () => clearTimeout(timer);
-  }, [phase, refinement, mode, result.jobMatch]);
+  }, [phase, refinement, mode, result.jobMatch, result.resumeName]);
 
   const handleSaveEdit = (edited: ResumeData) => {
     if (refinement) {
       setRefinement({ ...refinement, resume: edited });
     }
+    setApplied(false);
     setPhase('result');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDownload = () => {
+  const handleApply = () => {
+    setApplied(true);
+    setJustApplied(true);
+    setTab('refined');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => setJustApplied(false), 4000);
+  };
+
+  const handleDownload = (format: 'pdf' | 'word') => {
     setPdfError(null);
     try {
       if (!refinement) return;
-      generateResumePDF(refinement.resume);
+      if (format === 'pdf') {
+        generateResumePDF(refinement.resume);
+      } else {
+        generateResumeDoc(refinement.resume);
+      }
     } catch {
-      setPdfError('Could not generate the PDF. Please try again.');
+      setPdfError('Could not generate the file. Please try again.');
     }
   };
 
@@ -126,14 +142,18 @@ export default function ImproveResumeScreen({ result, onBack, onReset }: Props) 
           >
             <Pencil className="h-4 w-4" /> Edit Resume
           </button>
-          <button
-            onClick={handleDownload}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:from-emerald-600 hover:to-teal-700"
-          >
-            <Download className="h-4 w-4" /> Download Refined CV
-          </button>
         </div>
       </div>
+
+      {justApplied && (
+        <div className="mb-5 flex animate-fade-in-up items-center gap-2.5 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 shadow-sm">
+          <CheckCircle2 className="h-5 w-5 flex-shrink-0 text-emerald-500" />
+          <div>
+            <p className="text-sm font-bold text-emerald-700">Changes applied to your resume</p>
+            <p className="text-xs text-emerald-600">Your refined resume is ready to download as PDF or Word.</p>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-center gap-2 text-xs">
@@ -247,23 +267,78 @@ export default function ImproveResumeScreen({ result, onBack, onReset }: Props) 
       </div>
 
       {/* Action bar */}
-      <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-white p-4 shadow-sm">
-        <p className="text-sm text-slate-500">
-          Review, edit, then download your refined resume.
-        </p>
-        <div className="flex gap-2">
-          <button
-            onClick={() => setPhase('edit')}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
-          >
-            <Pencil className="h-4 w-4" /> Edit Resume
-          </button>
-          <button
-            onClick={handleDownload}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:from-emerald-600 hover:to-teal-700"
-          >
-            <Download className="h-4 w-4" /> Download Refined CV
-          </button>
+      <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/60 px-5 py-3">
+          <StepDot active={!applied} done={applied} label="1" />
+          <span className={`text-xs font-bold ${applied ? 'text-slate-400' : 'text-slate-700'}`}>Review & Apply</span>
+          <div className={`mx-2 h-px flex-1 ${applied ? 'bg-emerald-300' : 'bg-slate-200'}`} />
+          <StepDot active={applied} done={false} label="2" />
+          <span className={`text-xs font-bold ${applied ? 'text-slate-700' : 'text-slate-400'}`}>Export</span>
+        </div>
+
+        <div className="flex flex-wrap items-center justify-between gap-4 p-5">
+          {!applied ? (
+            <>
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-violet-100">
+                  <Sparkles className="h-4 w-4 text-violet-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Apply AI Changes to Resume</p>
+                  <p className="text-xs text-slate-500">Accept the refined version to unlock export.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => setPhase('edit')}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" /> Edit First
+                </button>
+                <button
+                  onClick={handleApply}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 px-6 py-2.5 text-sm font-bold text-white shadow-md shadow-fuchsia-500/25 transition hover:from-violet-700 hover:to-fuchsia-700"
+                >
+                  <CheckCircle2 className="h-4 w-4" /> Apply AI Changes
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-start gap-2.5">
+                <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-100">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-slate-800">Changes Applied - Ready to Export</p>
+                  <p className="text-xs text-slate-500">Download your refined resume as PDF or Word.</p>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    setApplied(false);
+                    setPhase('edit');
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-50"
+                >
+                  <Pencil className="h-4 w-4" /> Edit Again
+                </button>
+                <button
+                  onClick={() => handleDownload('pdf')}
+                  className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-5 py-2.5 text-sm font-bold text-white shadow-md shadow-emerald-500/25 transition hover:from-emerald-600 hover:to-teal-700"
+                >
+                  <FileDown className="h-5 w-5" /> Export as PDF
+                </button>
+                <button
+                  onClick={() => handleDownload('word')}
+                  className="inline-flex items-center gap-2 rounded-xl border-2 border-emerald-200 bg-white px-5 py-2.5 text-sm font-bold text-emerald-700 transition hover:bg-emerald-50"
+                >
+                  <FileText className="h-5 w-5" /> Export as Word
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -292,6 +367,21 @@ function LoadingStep({ label, delay }: { label: string; delay: number }) {
   );
 }
 
+function StepDot({ active, done, label }: { active: boolean; done: boolean; label: string }) {
+  return (
+    <span
+      className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-bold transition ${
+        done
+          ? 'bg-emerald-500 text-white'
+          : active
+            ? 'bg-violet-600 text-white shadow-sm'
+            : 'bg-slate-200 text-slate-400'
+      }`}
+    >
+      {done ? <Check className="h-3.5 w-3.5" /> : label}
+    </span>
+  );
+}
+
 // In a real app, the uploaded PDF would be parsed to extract resume content.
 // For this prototype, we use a realistic sample resume (SAMPLE_RESUME).
-

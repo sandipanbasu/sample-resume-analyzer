@@ -124,10 +124,33 @@ function clone<T>(obj: T): T {
   return JSON.parse(JSON.stringify(obj));
 }
 
+// Override the contact name and derive consistent handle-based links/emails
+// from the owner's actual name, so the refined resume belongs to the uploader.
+function applyOwnerName(resume: ResumeData, ownerName: string): void {
+  const handle = ownerName.toLowerCase().replace(/[^a-z0-9]+/g, '');
+  const emailHandle = ownerName.toLowerCase().replace(/[^a-z0-9]+/g, '.');
+  resume.contact.name = ownerName;
+  resume.contact.email = `${emailHandle}@email.com`;
+  resume.contact.linkedin = `linkedin.com/in/${handle}`;
+  resume.contact.github = `github.com/${handle}`;
+  for (const p of resume.projects) {
+    if (p.link && p.link.includes('github.com/janedoe')) {
+      p.link = p.link.replace('github.com/janedoe', `github.com/${handle}`);
+    }
+  }
+}
+
+export function withOwnerName(source: ResumeData, ownerName: string): ResumeData {
+  const copy = clone(source);
+  applyOwnerName(copy, ownerName);
+  return copy;
+}
+
 // General resume refinement (no JD). Improves wording, structure, and
 // presentation while preserving all facts.
-function refineGeneral(source: ResumeData): RefinementResult {
+function refineGeneral(source: ResumeData, ownerName?: string): RefinementResult {
   const resume = clone(source);
+  if (ownerName) applyOwnerName(resume, ownerName);
 
   resume.summary =
     'Computer Science student with a strong foundation in full-stack web development and hands-on project experience in React, Node.js, and databases. Seeking a software engineering internship to apply technical skills toward building scalable, user-focused applications.';
@@ -176,9 +199,11 @@ function refineGeneral(source: ResumeData): RefinementResult {
 // using only skills the student genuinely has.
 function refineForJob(
   source: ResumeData,
-  jobMatch: { skillsMatched: string[]; skillsMissing: string[]; keywordsMissing: string[] }
+  jobMatch: { skillsMatched: string[]; skillsMissing: string[]; keywordsMissing: string[] },
+  ownerName?: string
 ): RefinementResult {
   const resume = clone(source);
+  if (ownerName) applyOwnerName(resume, ownerName);
 
   resume.summary =
     'Computer Science student with hands-on full-stack development experience in JavaScript, React, and Python. Built and deployed web applications with Node.js backends and database integration. Eager to contribute to scalable platform engineering as a Software Engineer Intern.';
@@ -237,9 +262,10 @@ function refineForJob(
 export function refineResume(
   source: ResumeData,
   mode: 'general' | 'jd',
-  jobMatch?: { skillsMatched: string[]; skillsMissing: string[]; keywordsMissing: string[] }
+  jobMatch?: { skillsMatched: string[]; skillsMissing: string[]; keywordsMissing: string[] },
+  ownerName?: string
 ): RefinementResult {
   return mode === 'jd' && jobMatch
-    ? refineForJob(source, jobMatch)
-    : refineGeneral(source);
+    ? refineForJob(source, jobMatch, ownerName)
+    : refineGeneral(source, ownerName);
 }
