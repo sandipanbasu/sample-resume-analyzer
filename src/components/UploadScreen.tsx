@@ -1,13 +1,15 @@
 import { useCallback, useRef, useState } from 'react';
 import { FileText, Upload, Sparkles, Target, Check, Briefcase } from 'lucide-react';
 import { TARGET_ROLES, SAMPLE_JOB_DESCRIPTION } from '@/lib/analysis';
+import { MAX_RESUME_FILE_SIZE } from '@/lib/parseResumePdf';
 
 type Props = {
   onAnalyze: (file: File | null, targetRole: string, jobDescription: string | null) => void;
   isAnalyzing: boolean;
+  error?: string | null;
 };
 
-export default function UploadScreen({ onAnalyze, isAnalyzing }: Props) {
+export default function UploadScreen({ onAnalyze, isAnalyzing, error }: Props) {
   const [file, setFile] = useState<File | null>(null);
   const [targetRole, setTargetRole] = useState<string>('Software Engineer Intern');
   const [customRole, setCustomRole] = useState('');
@@ -53,7 +55,9 @@ export default function UploadScreen({ onAnalyze, isAnalyzing }: Props) {
 
       {/* Upload card */}
       <div className="animate-fade-in-up mt-10 w-full rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8" style={{ animationDelay: '0.1s' }}>
-        {/* Dropzone */}
+         {error && <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-semibold text-rose-700">{error}</div>}
+
+         {/* Dropzone */}
         <label
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -91,7 +95,7 @@ export default function UploadScreen({ onAnalyze, isAnalyzing }: Props) {
               <p className="mt-3 font-display text-sm font-bold text-slate-700">
                 Drag & drop your resume here
               </p>
-              <p className="mt-1 text-xs text-slate-400">PDF up to 10MB · or click to browse</p>
+               <p className="mt-1 text-xs text-slate-400">PDF up to {MAX_RESUME_FILE_SIZE / 1024 / 1024}MB · or click to browse</p>
             </>
           )}
         </label>

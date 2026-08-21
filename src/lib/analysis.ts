@@ -26,6 +26,8 @@ export type JobMatchResult = {
   recommendations: Recommendation[];
 };
 
+import { SAMPLE_RESUME, type ResumeData } from '@/lib/resume';
+
 export type AnalysisResult = {
   fileName: string;
   resumeName: string;
@@ -39,6 +41,7 @@ export type AnalysisResult = {
   missingSkills: string[];
   topRecommendations: Recommendation[];
   jobMatch: JobMatchResult | null;
+  resume: ResumeData;
 };
 
 export const TARGET_ROLES = [
@@ -163,13 +166,8 @@ export const SAMPLE_ANALYSIS: AnalysisResult = {
     },
   ],
   jobMatch: null,
+  resume: SAMPLE_RESUME,
 };
-
-// The skills the sample resume already claims to have (for job-match simulation).
-const RESUME_SKILLS = new Set([
-  'JavaScript', 'React', 'Node.js', 'Python', 'HTML', 'CSS',
-  'MongoDB', 'Git', 'Firebase', 'Java', 'C++',
-]);
 
 function matchLabel(score: number) {
   if (score >= 85) return 'Strong match — tailor the details';
@@ -178,9 +176,8 @@ function matchLabel(score: number) {
   return 'Weak match — significant gaps';
 }
 
-// Simulated job-match analysis. Compares the job description against the
-// (simulated) resume content and returns realistic, varied results.
-export function analyzeJobMatch(jobDescription: string, targetRole: string): JobMatchResult {
+// Compares the job description against the supplied resume skills.
+export function analyzeJobMatch(jobDescription: string, targetRole: string, resumeSkills: string[]): JobMatchResult {
   const text = jobDescription.toLowerCase();
   const has = (kw: string) => text.includes(kw.toLowerCase());
 
@@ -188,12 +185,13 @@ export function analyzeJobMatch(jobDescription: string, targetRole: string): Job
   const candidateSkills = [
     'Python', 'Go', 'React', 'TypeScript', 'PostgreSQL', 'Redis',
     'Jest', 'AWS', 'Docker', 'CI/CD', 'REST APIs', 'GraphQL',
-    'Kubernetes', 'Microservices', 'JavaScript', 'Node.js', 'Java',
+    'Kubernetes', 'Microservices', 'JavaScript', 'Node.js', 'Java', 'Rust',
     'Data Structures', 'Algorithms',
   ];
 
-  const skillsMatched = candidateSkills.filter((s) => has(s) && RESUME_SKILLS.has(s));
-  const skillsMissing = candidateSkills.filter((s) => has(s) && !RESUME_SKILLS.has(s));
+  const resumeSkillSet = new Set(resumeSkills.map((skill) => skill.toLowerCase()));
+  const skillsMatched = candidateSkills.filter((s) => has(s) && resumeSkillSet.has(s.toLowerCase()));
+  const skillsMissing = candidateSkills.filter((s) => has(s) && !resumeSkillSet.has(s.toLowerCase()));
 
   // Keywords present in the JD but absent from the resume's vocabulary.
   const keywordPool = [
@@ -282,7 +280,8 @@ function extractNameFromFilename(fileName: string): string {
 export function analyzeResume(
   fileName: string,
   targetRole: string,
-  jobDescription: string | null
+  jobDescription: string | null,
+  resume: ResumeData
 ): AnalysisResult {
   const jitter = () => Math.floor(Math.random() * 7) - 3;
   const clamp = (n: number) => Math.max(40, Math.min(98, n));
@@ -291,29 +290,85 @@ export function analyzeResume(
     ...c,
     score: clamp(c.score + jitter()),
   }));
-  const overall = clamp(
-    Math.round(breakdown.reduce((sum, c) => sum + c.score, 0) / breakdown.length)
-  );
-
-  const label =
-    overall >= 90 ? 'Outstanding — internship-ready' :
-    overall >= 75 ? 'Good, but can be stronger' :
-    overall >= 60 ? 'Promising, needs polish' :
-    'Needs significant work';
-
   const jobMatch = jobDescription && jobDescription.trim().length > 0
-    ? analyzeJobMatch(jobDescription, targetRole)
+    ? analyzeJobMatch(jobDescription, targetRole, resume.skills)
     : null;
+
+  const hasParsedContent = resume !== SAMPLE_RESUME;
+  const detectedSkills = resume.skills.length;
+  const experienceCount = resume.experience.length;
+  const projectCount = resume.projects.length;
+  const quantifiedBullets = [...resume.experience, ...resume.projects]
+    .flatMap((entry) => entry.bullets)
+    .filter((bullet) => /\d/.test(bullet)).length;
+
+  if (hasParsedContent) {
+    breakdown[0].score = clamp(55 + Math.min(35, detectedSkills * 4));
+    breakdown[1].score = clamp(55 + Math.min(35, projectCount * 12));
+    breakdown[2].score = clamp(55 + Math.min(35, experienceCount * 15));
+    breakdown[5].score = clamp(45 + Math.min(45, quantifiedBullets * 15));
+  }
+
+  const parsedMissingSkills = jobMatch?.skillsMissing ?? [
+    'Quantified achievements',
+    'Project links',
+    'Technical keywords',
+  ];
+  const strengths = hasParsedContent
+    ? [
+        `${detectedSkills} technical skills detected in the resume`,
+        `${projectCount} project${projectCount === 1 ? '' : 's'} identified`,
+        experienceCount > 0 ? `${experienceCount} experience entr${experienceCount === 1 ? 'y' : 'ies'} identified` : 'Clear opportunity to add practical experience',
+        quantifiedBullets > 0 ? `${quantifiedBullets} quantified bullet${quantifiedBullets === 1 ? '' : 's'} detected` : 'Resume content was successfully extracted from the PDF',
+      ]
+    : SAMPLE_ANALYSIS.strengths;
+  const improvements = hasParsedContent
+    ? [
+        {
+          text: quantifiedBullets > 0 ? 'Add more measurable outcomes to experience and project descriptions' : 'Add measurable outcomes to experience and project descriptions',
+          example: { original: resume.experience[0]?.bullets[0] ?? 'Describe your work without a measurable result.', improved: 'Add the result, scale, or measurable outcome of the work you completed.' },
+        },
+        {
+          text: resume.skills.length > 0 ? 'Group technical skills by category to improve ATS readability' : 'Add a dedicated technical skills section',
+          example: { original: resume.skills.join(', ') || 'Skills are not clearly listed.', improved: 'Languages: ... | Frameworks: ... | Tools: ...' },
+        },
+        {
+          text: projectCount > 0 ? 'Add links and technologies to each project' : 'Add projects that demonstrate relevant skills',
+          example: { original: resume.projects[0]?.name ?? 'No project section detected.', improved: 'Project Name — Technologies — GitHub or live link' },
+        },
+      ]
+    : SAMPLE_ANALYSIS.improvements;
+  const topRecommendations = hasParsedContent
+    ? [
+        { title: 'Quantify your impact', detail: 'Add numbers for users, performance, revenue, time saved, or other measurable outcomes where the facts support them.', impact: 'high' as const },
+        { title: 'Strengthen ATS structure', detail: 'Use clear section headings and group related skills so recruiters and parsers can find important information quickly.', impact: 'high' as const },
+        { title: 'Add verifiable project links', detail: 'Include GitHub or live links for projects so recruiters can validate your work.', impact: 'medium' as const },
+      ]
+    : SAMPLE_ANALYSIS.topRecommendations;
+
+  const finalOverall = clamp(
+    Math.round(breakdown.reduce((sum, category) => sum + category.score, 0) / breakdown.length)
+  );
+  const finalLabel =
+    finalOverall >= 90 ? 'Outstanding — internship-ready' :
+    finalOverall >= 75 ? 'Good, but can be stronger' :
+    finalOverall >= 60 ? 'Promising, needs polish' :
+    'Needs significant work';
 
   return {
     ...SAMPLE_ANALYSIS,
     fileName,
-    resumeName: extractNameFromFilename(fileName),
+    resumeName: resume.contact.name || extractNameFromFilename(fileName),
     targetRole,
     jobDescription,
-    overallScore: overall,
-    scoreLabel: label,
+    overallScore: finalOverall,
+    scoreLabel: finalLabel,
     breakdown,
+    strengths,
+    improvements,
+    missingSkills: parsedMissingSkills,
+    topRecommendations,
     jobMatch,
+    resume,
   };
 }

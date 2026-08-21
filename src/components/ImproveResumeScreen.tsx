@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import ResumePreview from './ResumePreview';
 import EditableResume from './EditableResume';
-import { refineResume, SAMPLE_RESUME, withOwnerName, type RefinementResult, type ResumeData } from '@/lib/resume';
+import { refineResume, type RefinementResult, type ResumeData } from '@/lib/resume';
 import { generateResumePDF } from '@/lib/pdf';
 import { generateResumeDoc } from '@/lib/word';
 import type { AnalysisResult, JobMatchResult } from '@/lib/analysis';
@@ -28,19 +28,20 @@ export default function ImproveResumeScreen({ result, onBack, onReset }: Props) 
   const [applied, setApplied] = useState(false);
   const [justApplied, setJustApplied] = useState(false);
 
-  const originalResume: ResumeData = withOwnerName(SAMPLE_RESUME, result.resumeName);
+  const originalResume: ResumeData = result.resume;
+  const sourceResume = result.resume;
 
   // Simulate the AI refinement call once on mount.
   useEffect(() => {
     if (phase !== 'loading' || refinement) return;
     const timer = setTimeout(() => {
       const jobMatch: JobMatchResult | undefined = result.jobMatch ?? undefined;
-      const refined = refineResume(SAMPLE_RESUME, mode, jobMatch, result.resumeName);
+      const refined = refineResume(sourceResume, mode, jobMatch);
       setRefinement(refined);
       setPhase('result');
     }, 2200);
     return () => clearTimeout(timer);
-  }, [phase, refinement, mode, result.jobMatch, result.resumeName]);
+  }, [phase, refinement, mode, result.jobMatch, result.resumeName, sourceResume]);
 
   const handleSaveEdit = (edited: ResumeData) => {
     if (refinement) {
@@ -382,6 +383,3 @@ function StepDot({ active, done, label }: { active: boolean; done: boolean; labe
     </span>
   );
 }
-
-// In a real app, the uploaded PDF would be parsed to extract resume content.
-// For this prototype, we use a realistic sample resume (SAMPLE_RESUME).

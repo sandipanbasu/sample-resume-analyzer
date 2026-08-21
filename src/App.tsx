@@ -4,26 +4,45 @@ import UploadScreen from '@/components/UploadScreen';
 import ResultsDashboard from '@/components/ResultsDashboard';
 import ImproveResumeScreen from '@/components/ImproveResumeScreen';
 import { analyzeResume, type AnalysisResult } from '@/lib/analysis';
+import { SAMPLE_RESUME, type ResumeData } from '@/lib/resume';
+import { parseResumePdf, ResumeParseError } from '@/lib/parseResumePdf';
+import ExtractedResumeScreen from '@/components/ExtractedResumeScreen';
 
-type View = 'landing' | 'analyzing' | 'results' | 'improve';
+type View = 'landing' | 'parsing' | 'extracted' | 'analyzing' | 'results' | 'improve' | 'error';
 
 export default function App() {
   const [view, setView] = useState<View>('landing');
   const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [parsedFile, setParsedFile] = useState<{ fileName: string; resume: ResumeData; pageCount: number; targetRole: string; jobDescription: string | null } | null>(null);
 
-  const handleAnalyze = (file: File | null, targetRole: string, jobDescription: string | null) => {
-    setView('analyzing');
+  const handleAnalyze = async (file: File | null, targetRole: string, jobDescription: string | null) => {
+    setError(null);
     const fileName = file?.name ?? 'Jane_Doe_Resume.pdf';
-    // Simulate AI processing time for a realistic feel.
-    setTimeout(() => {
-      setResult(analyzeResume(fileName, targetRole, jobDescription));
+    try {
+      setView(file ? 'parsing' : 'analyzing');
+      const parsed = file ? await parseResumePdf(file) : null;
+      const resume: ResumeData = parsed?.resume ?? SAMPLE_RESUME;
+      if (parsed && file) {
+        setParsedFile({ fileName: file.name, resume: parsed.resume, pageCount: parsed.pageCount, targetRole, jobDescription });
+        setView('extracted');
+        return;
+      }
+      setView('analyzing');
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      setResult(analyzeResume(fileName, targetRole, jobDescription, resume));
       setView('results');
       window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, 1800);
+    } catch (cause) {
+      setError(cause instanceof ResumeParseError ? cause.message : 'We could not process this PDF. Please try another file.');
+      setView('error');
+    }
   };
 
   const handleReset = () => {
     setResult(null);
+    setError(null);
+    setParsedFile(null);
     setView('landing');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -67,12 +86,28 @@ export default function App() {
 
       {/* Main */}
       <main className="relative z-10">
-        {view === 'improve' && result ? (
+         {view === 'error' ? (
+           <UploadScreen onAnalyze={handleAnalyze} isAnalyzing={false} error={error} />
+         ) : view === 'extracted' && parsedFile ? (
+           <ExtractedResumeScreen
+             fileName={parsedFile.fileName}
+             resume={parsedFile.resume}
+             pageCount={parsedFile.pageCount}
+             onReset={handleReset}
+             onContinue={() => {
+               setView('analyzing');
+               setTimeout(() => {
+                 setResult(analyzeResume(parsedFile.fileName, parsedFile.targetRole, parsedFile.jobDescription, parsedFile.resume));
+                 setView('results');
+               }, 700);
+             }}
+           />
+         ) : view === 'improve' && result ? (
           <ImproveResumeScreen result={result} onBack={handleBackToResults} onReset={handleReset} />
         ) : view === 'results' && result ? (
           <ResultsDashboard result={result} onReset={handleReset} onImprove={handleImprove} />
         ) : (
-          <UploadScreen onAnalyze={handleAnalyze} isAnalyzing={view === 'analyzing'} />
+           <UploadScreen onAnalyze={handleAnalyze} isAnalyzing={view === 'analyzing' || view === 'parsing'} />
         )}
       </main>
 
