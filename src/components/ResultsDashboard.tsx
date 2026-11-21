@@ -185,7 +185,11 @@ export default function ResultsDashboard({ result, onReset, onImprove }: Props) 
 
       {/* Job Match */}
       {result.jobMatch && (
-        <JobMatchSection jobMatch={result.jobMatch} targetRole={result.targetRole} />
+        <JobMatchSection
+          jobMatch={result.jobMatch}
+          targetRole={result.targetRole}
+          resumeName={result.resumeName}
+        />
       )}
 
       {/* Top 3 recommendations */}
