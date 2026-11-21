@@ -21,3 +21,9 @@ dist-ssr
 *.sln
 *.sw?
 .env
+
+# agent memory and local state (ruflo, codebase-memory)
+.swarm/
+.claude-flow/
+ruvector.db
+agentdb.rvf*

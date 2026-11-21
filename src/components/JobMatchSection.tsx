@@ -1,9 +1,11 @@
-import { Check, X, Briefcase, Lightbulb, ArrowRight } from 'lucide-react';
+import { Check, X, Briefcase, Lightbulb, ArrowRight, Download } from 'lucide-react';
 import type { JobMatchResult } from '@/lib/analysis';
+import { downloadJobMatchReportPDF } from '@/lib/jobMatchReport';
 
 type Props = {
   jobMatch: JobMatchResult;
   targetRole: string;
+  resumeName: string;
 };
 
 function impactStyles(impact: 'high' | 'medium' | 'low') {
@@ -19,7 +21,7 @@ function matchColor(score: number) {
   return { stroke: '#ef4444', text: 'text-rose-600' };
 }
 
-export default function JobMatchSection({ jobMatch, targetRole }: Props) {
+export default function JobMatchSection({ jobMatch, targetRole, resumeName }: Props) {
   const { matchScore, matchLabel, skillsMatched, skillsMissing, keywordsMissing, recommendations } = jobMatch;
   const { stroke, text } = matchColor(matchScore);
 
@@ -39,9 +41,18 @@ export default function JobMatchSection({ jobMatch, targetRole }: Props) {
           </div>
           <h3 className="font-display text-lg font-extrabold text-slate-900">Job Match</h3>
         </div>
-        <span className="hidden text-xs font-medium text-slate-400 sm:block">
-          Tailored for your {targetRole.toLowerCase()} application
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="hidden text-xs font-medium text-slate-400 sm:block">
+            Tailored for your {targetRole.toLowerCase()} application
+          </span>
+          <button
+            type="button"
+            onClick={() => downloadJobMatchReportPDF({ jobMatch, targetRole, resumeName })}
+            className="inline-flex items-center gap-2 rounded-xl border-2 border-fuchsia-200 bg-white px-3 py-1.5 text-xs font-bold text-fuchsia-700 transition hover:bg-fuchsia-50"
+          >
+            <Download className="h-4 w-4" /> Download report (PDF)
+          </button>
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm">
